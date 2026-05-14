@@ -1,639 +1,739 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vehicle Counting System</title>
+    <title>Hệ thống Đếm Phương tiện</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-base:    #090c10;
+            --bg-panel:   #0e1318;
+            --bg-card:    #131a22;
+            --border:     #1e2d3d;
+            --border-hi:  #2a4060;
+            --accent:     #00d4ff;
+            --accent-dim: #00d4ff22;
+            --accent-glow:#00d4ff44;
+            --green:      #00ff88;
+            --green-dim:  #00ff8822;
+            --amber:      #ffaa00;
+            --amber-dim:  #ffaa0022;
+            --red:        #ff4466;
+            --red-dim:    #ff446622;
+            --text-pri:   #e8edf2;
+            --text-sec:   #6b8096;
+            --text-dim:   #3d5168;
+            --mono:       'Space Mono', monospace;
+            --sans:       'DM Sans', sans-serif;
         }
 
+        html, body { height: 100%; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: var(--sans);
+            background: var(--bg-base);
+            color: var(--text-pri);
             min-height: 100vh;
-            padding: 20px;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+            pointer-events: none; z-index: 9999;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
+        /* TOP BAR */
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 28px; height: 56px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 100;
         }
-
-        .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
+        .topbar-brand { display: flex; align-items: center; gap: 12px; }
+        .brand-icon {
+            width: 32px; height: 32px;
+            border: 1.5px solid var(--accent); border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 12px var(--accent-glow);
         }
+        .brand-icon svg { width: 16px; height: 16px; stroke: var(--accent); fill: none; }
+        .brand-name { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; }
+        .brand-name span { color: var(--accent); }
+        .topbar-meta { display: flex; align-items: center; gap: 24px; }
+        .meta-item { font-family: var(--mono); font-size: 11px; color: var(--text-sec); display: flex; align-items: center; gap: 6px; }
 
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+        /* PULSE DOT */
+        .pulse-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--green); box-shadow: 0 0 6px var(--green);
+            animation: pulse-glow 2s infinite;
         }
-
-        .header p {
-            font-size: 1.2em;
-            opacity: 0.8;
+        .pulse-dot.offline    { background: var(--red);   box-shadow: 0 0 6px var(--red);   animation: none; }
+        .pulse-dot.processing { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+        @keyframes pulse-glow {
+            0%,100% { opacity:1; box-shadow:0 0 6px var(--green); }
+            50%     { opacity:.5; box-shadow:0 0 2px var(--green); }
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .main-content {
+        /* LAYOUT */
+        .workspace {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 30px;
-            padding: 30px;
+            grid-template-columns: 1fr 320px;
+            gap: 1px;
+            background: var(--border);
+            min-height: calc(100vh - 88px);
         }
-
-        .video-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
+        .panel { background: var(--bg-panel); padding: 24px; }
+        .panel-label {
+            font-family: var(--mono); font-size: 10px; letter-spacing: .15em;
+            color: var(--text-dim); text-transform: uppercase; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
         }
+        .panel-label::after { content:''; flex:1; height:1px; background:var(--border); }
 
-        .stats-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
+        /* VIDEO */
+        .video-panel { grid-row: 1 / 3; }
+        .video-shell {
+            position: relative; width: 100%; aspect-ratio: 16/9;
+            background: #000; border: 1px solid var(--border-hi);
+            border-radius: 4px; overflow: hidden; margin-bottom: 16px;
         }
-
-        .video-container {
-            position: relative;
-            width: 100%;
-            height: 480px;
-            background: #000;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 20px;
+        .video-shell::before {
+            content:''; position:absolute; inset:0;
+            background: linear-gradient(to bottom,rgba(0,212,255,.04) 0%,transparent 30%),
+                        linear-gradient(to top,rgba(0,212,255,.04) 0%,transparent 30%);
+            pointer-events:none; z-index:2;
         }
-
-        #videoCanvas {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+        .video-shell::after {
+            content:''; position:absolute; inset:8px; pointer-events:none; z-index:3;
+            background:
+                linear-gradient(var(--accent),var(--accent)) top left/20px 1px no-repeat,
+                linear-gradient(var(--accent),var(--accent)) top left/1px 20px no-repeat,
+                linear-gradient(var(--accent),var(--accent)) top right/20px 1px no-repeat,
+                linear-gradient(var(--accent),var(--accent)) top right/1px 20px no-repeat,
+                linear-gradient(var(--accent),var(--accent)) bottom left/20px 1px no-repeat,
+                linear-gradient(var(--accent),var(--accent)) bottom left/1px 20px no-repeat,
+                linear-gradient(var(--accent),var(--accent)) bottom right/20px 1px no-repeat,
+                linear-gradient(var(--accent),var(--accent)) bottom right/1px 20px no-repeat;
         }
-
+        #videoCanvas { width:100%; height:100%; object-fit:contain; display:block; }
         .video-placeholder {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #666;
-            font-size: 1.2em;
+            position:absolute; inset:0; display:flex; flex-direction:column;
+            align-items:center; justify-content:center; gap:12px;
+            color:var(--text-dim); font-family:var(--mono); font-size:12px; letter-spacing:.05em; z-index:1;
         }
-
-        .controls {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+        .video-placeholder svg { width:40px; height:40px; stroke:var(--text-dim); fill:none; opacity:.4; }
+        .video-badge {
+            position:absolute; top:16px; left:16px;
+            font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+            color:var(--accent); background:rgba(0,212,255,.08);
+            border:1px solid rgba(0,212,255,.2); padding:4px 10px;
+            border-radius:2px; z-index:4; display:flex; align-items:center; gap:6px;
         }
+        .rec-dot { width:5px; height:5px; border-radius:50%; background:var(--red); box-shadow:0 0 4px var(--red); animation:pulse-glow 1s infinite; }
 
+        /* CONTROLS */
+        .ctrl-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
         .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
+            font-family:var(--mono); font-size:11px; letter-spacing:.08em;
+            padding:9px 18px; border:1px solid; border-radius:3px; cursor:pointer;
+            transition:all .15s; display:flex; align-items:center; gap:7px;
+            background:transparent; white-space:nowrap;
         }
+        .btn svg { width:13px; height:13px; stroke:currentColor; fill:none; flex-shrink:0; }
+        .btn-start  { color:var(--green); border-color:var(--green); }
+        .btn-start:hover  { background:var(--green-dim); box-shadow:0 0 12px #00ff8833; }
+        .btn-stop   { color:var(--red);   border-color:var(--red); }
+        .btn-stop:hover   { background:var(--red-dim); }
+        .btn-reset{color: var(--amber);border-color: var(--amber);grid-column: span 2;justify-self: center;margin-top: 20px;}
+        .btn-reset:hover{background: var(--amber-dim);}
+        .btn-export { color:var(--accent); border-color:var(--accent); }
+        .btn-export:hover { background:var(--accent-dim); box-shadow:0 0 12px var(--accent-glow); }
 
-        .btn-primary {
-            background: #3498db;
-            color: white;
+        /* UPLOAD ZONE */
+        .upload-zone {
+            border:1px dashed var(--border-hi); border-radius:4px; padding:20px;
+            text-align:center; cursor:pointer;
+            transition:border-color .2s, background .2s, opacity .2s;
+            position:relative; user-select:none;
         }
+        .upload-zone:hover:not(.locked),
+        .upload-zone.drag-over { border-color:var(--accent); background:var(--accent-dim); }
+        .upload-zone.locked { cursor:not-allowed; opacity:.5; border-style:solid; border-color:var(--border); }
+        .upload-zone input[type="file"] { display:none; }
+        .upload-icon { width:32px; height:32px; fill:none; margin:0 auto 10px; display:block; transition:stroke .2s; }
+        .upload-icon-normal { stroke:var(--text-dim); }
+        .upload-icon-spin   { stroke:var(--amber); display:none; animation:spin .9s linear infinite; transform-origin:12px 12px; }
+        .upload-zone.locked .upload-icon-normal { display:none; }
+        .upload-zone.locked .upload-icon-spin   { display:block; }
+        .upload-text { font-family:var(--mono); font-size:11px; color:var(--text-sec); letter-spacing:.05em; }
+        .upload-text strong { color:var(--accent); font-weight:400; }
+        .upload-zone.locked .upload-text strong { color:var(--amber); }
+        .upload-hint { font-size:10px; color:var(--text-dim); margin-top:4px; }
 
-        .btn-primary:hover {
-            background: #2980b9;
-            transform: translateY(-2px);
+        /* UPLOAD STATUS BOX */
+        #uploadStatus {
+            display:none; margin-top:12px;
+            background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:14px 16px;
         }
-
-        .btn-success {
-            background: #27ae60;
-            color: white;
+        .us-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+        .us-icon {
+            width:30px; height:30px; border-radius:50%; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
         }
-
-        .btn-success:hover {
-            background: #219a52;
+        .us-icon svg { width:14px; height:14px; stroke:currentColor; fill:none; }
+        .us-icon.processing { color:var(--amber); background:var(--amber-dim); border:1px solid var(--amber); }
+        .us-icon.success    { color:var(--green); background:var(--green-dim); border:1px solid var(--green); }
+        .us-icon.error      { color:var(--red);   background:var(--red-dim);   border:1px solid var(--red); }
+        .us-icon.processing svg { animation:spin .9s linear infinite; transform-origin:center; }
+        .us-info { flex:1; min-width:0; }
+        .us-title { font-family:var(--mono); font-size:11px; letter-spacing:.06em; }
+        .us-title.processing { color:var(--amber); }
+        .us-title.success    { color:var(--green); }
+        .us-title.error      { color:var(--red); }
+        .us-sub { font-size:11px; color:var(--text-dim); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .us-progress { height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+        .us-progress-fill {
+            height:100%; border-radius:2px; background:var(--amber);
+            background-image:linear-gradient(90deg, var(--amber) 0%,#ffcc55 50%,var(--amber) 100%);
+            background-size:200% 100%;
+            animation:shimmer 1.5s linear infinite;
+            transition:width .4s;
         }
-
-        .btn-danger {
-            background: #e74c3c;
-            color: white;
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        .us-download {
+            display:inline-flex; align-items:center; gap:6px; margin-top:10px;
+            font-family:var(--mono); font-size:11px; color:var(--accent); text-decoration:none;
+            padding:6px 12px; border:1px solid var(--accent); border-radius:3px; transition:background .15s;
         }
+        .us-download:hover { background:var(--accent-dim); }
+        .us-download svg { width:12px; height:12px; stroke:currentColor; fill:none; }
 
-        .btn-danger:hover {
-            background: #c0392b;
-        }
-
-        .btn-warning {
-            background: #f39c12;
-            color: white;
-        }
-
-        .btn-warning:hover {
-            background: #d68910;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
+        /* STATS */
+        .sidebar-top { border-bottom:1px solid var(--border); }
+        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px; }
         .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            text-align: center;
+            background:var(--bg-card); border:1px solid var(--border); border-radius:4px;
+            padding:14px 16px; position:relative; overflow:hidden; transition:border-color .2s;
         }
+        .stat-card:hover { border-color:var(--border-hi); }
+        .stat-card::before { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; }
+        .stat-in::before    { background:var(--green); }
+        .stat-out::before   { background:var(--red); }
+        .stat-total::before { background:var(--accent); }
+        .stat-net::before   { background:var(--amber); }
+        .stat-value { font-family:var(--mono); font-size:28px; font-weight:700; line-height:1; margin-bottom:6px; }
+        .stat-in    .stat-value { color:var(--green); }
+        .stat-out   .stat-value { color:var(--red); }
+        .stat-total .stat-value { color:var(--accent); }
+        .stat-net   .stat-value { color:var(--amber); }
+        .stat-label { font-family:var(--mono); font-size:9px; letter-spacing:.15em; color:var(--text-dim); text-transform:uppercase; }
 
-        .stat-number {
-            font-size: 2em;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
+        /* VEHICLE TYPES */
+        .type-list { margin-bottom:20px; }
+        .type-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+        .type-row:last-child { border-bottom:none; }
+        .type-name { font-size:13px; color:var(--text-sec); display:flex; align-items:center; gap:10px; }
+        .type-icon { width:28px; height:28px; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:14px; }
+        .type-count { font-family:var(--mono); font-size:16px; color:var(--text-pri); text-align:right; }
+        .type-bar { height:2px; background:var(--border); border-radius:1px; margin-top:4px; overflow:hidden; }
+        .type-bar-fill { height:100%; background:var(--accent); border-radius:1px; transition:width .4s; width:0; }
 
-        .stat-label {
-            color: #7f8c8d;
-            font-size: 0.9em;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+        /* SESSION */
+        .session-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+        .session-row:last-child { border-bottom:none; }
+        .session-key { font-size:12px; color:var(--text-dim); }
+        .session-val { font-family:var(--mono); font-size:12px; color:var(--text-sec); display:flex; align-items:center; gap:6px; }
 
-        .vehicle-types {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        /* FOOTER */
+        .footer-strip {
+            background:var(--bg-panel); border-top:1px solid var(--border);
+            padding:8px 28px; height:32px;
+            display:flex; justify-content:space-between; align-items:center;
         }
+        .footer-strip span { font-family:var(--mono); font-size:10px; color:var(--text-dim); letter-spacing:.05em; }
 
-        .vehicle-types h3 {
-            margin-bottom: 15px;
-            color: #2c3e50;
-        }
-
-        .vehicle-type-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #ecf0f1;
-        }
-
-        .vehicle-type-item:last-child {
-            border-bottom: none;
-        }
-
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-        }
-
-        .status-online {
-            background: #27ae60;
-        }
-
-        .status-offline {
-            background: #e74c3c;
-        }
-
-        .status-processing {
-            background: #f39c12;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .file-upload {
-            border: 2px dashed #bdc3c7;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            transition: border-color 0.3s ease;
-        }
-
-        .file-upload:hover {
-            border-color: #3498db;
-        }
-
-        .file-upload input[type="file"] {
-            display: none;
-        }
-
-        .session-info {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            margin-top: 20px;
-        }
-
-        .session-info h4 {
-            margin-bottom: 10px;
-            color: #2c3e50;
-        }
-
-        .session-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            font-size: 0.9em;
-            color: #7f8c8d;
-        }
-
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .controls {
-                flex-direction: column;
-            }
-        }
+        /* RESPONSIVE */
+        @media (max-width:900px) { .workspace { grid-template-columns:1fr; } .video-panel { grid-row:auto; } }
+        @media (max-width:500px)  { .ctrl-row { flex-direction:column; } .btn { justify-content:center; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚗 Vehicle Counting System</h1>
-            <p>Real-time vehicle detection, tracking, and counting using YOLOv8 and DeepSORT</p>
+
+<header class="topbar">
+    <div class="topbar-brand">
+        <div class="brand-icon">
+            <svg viewBox="0 0 24 24" stroke-width="1.5">
+                <rect x="2" y="8" width="20" height="10" rx="2"/>
+                <circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>
+                <path d="M2 13h20M8 8l2-4h4l2 4"/>
+            </svg>
+        </div>
+        <span class="brand-name">VCS<span>/</span>GIÁM SÁT</span>
+    </div>
+    <div class="topbar-meta">
+        <div class="meta-item">
+            <span id="statusIndicator" class="pulse-dot offline"></span>
+            <span id="statusText">NGOẠI TUYẾN</span>
+        </div>
+        <div class="meta-item">PHIÊN · <span id="sessionDuration">00:00:00</span></div>
+        <div class="meta-item" id="clockDisplay">—</div>
+    </div>
+</header>
+
+<div class="workspace">
+
+    <!-- CỘT TRÁI -->
+    <div class="panel video-panel">
+        <div class="panel-label">LUỒNG TRỰC TIẾP</div>
+
+        <div class="video-shell">
+            <div class="video-badge"><span class="rec-dot"></span>YOLO v8 · DeepSORT</div>
+            <canvas id="videoCanvas"></canvas>
+            <div class="video-placeholder" id="videoPlaceholder">
+                <svg viewBox="0 0 24 24" stroke-width="1">
+                    <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14"/>
+                    <rect x="3" y="6" width="12" height="12" rx="2"/>
+                </svg>
+                CHỜ LUỒNG VIDEO
+            </div>
         </div>
 
-        <div class="main-content">
-            <div class="video-section">
-                <div class="video-container">
-                    <canvas id="videoCanvas"></canvas>
-                    <div class="video-placeholder" id="videoPlaceholder">
-                        Click "Start Camera" to begin processing
-                    </div>
-                </div>
+        <div class="ctrl-row">
+            <button class="btn btn-start" onclick="startCamera()">
+                <svg viewBox="0 0 24 24" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                BẮT ĐẦU CAMERA
+            </button>
+            <button class="btn btn-stop" onclick="stopCamera()">
+                <svg viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                DỪNG
+            </button>
+            <button class="btn btn-export" onclick="downloadStats()">
+                <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                XUẤT JSON
+            </button>
+        </div>
 
-                <div class="controls">
-                    <button class="btn btn-success" onclick="startCamera()">📹 Start Camera</button>
-                    <button class="btn btn-danger" onclick="stopCamera()">⏹️ Stop Camera</button>
-                    <button class="btn btn-warning" onclick="resetCounts()">🔄 Reset Counts</button>
-                    <button class="btn btn-primary" onclick="downloadStats()">📊 Download Stats</button>
-                </div>
+        <div class="panel-label" style="margin-top:8px">TẢI LÊN FILE VIDEO</div>
 
-                <div class="file-upload">
-                    <input type="file" id="videoFile" accept="video/*" onchange="uploadVideo()">
-                    <p>📁 Drop a video file here or click to upload</p>
-                    <button class="btn btn-primary" onclick="document.getElementById('videoFile').click()">
-                        Choose Video File
-                    </button>
-                </div>
+        <div class="upload-zone" id="uploadZone" onclick="handleUploadClick()">
+            <input type="file" id="videoFile" accept="video/*" onchange="uploadVideo()">
+            <!-- icon bình thường -->
+            <svg class="upload-icon upload-icon-normal" viewBox="0 0 24 24" stroke-width="1.5">
+                <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 9l5-5 5 5M12 4v12"/>
+            </svg>
+            <!-- icon spinner khi locked -->
+            <svg class="upload-icon upload-icon-spin" viewBox="0 0 24 24" stroke-width="2">
+                <path d="M21 12a9 9 0 11-6.219-8.56" stroke-linecap="round"/>
+            </svg>
+            <div class="upload-text" id="uploadZoneText">
+                Kéo thả video hoặc <strong>nhấn để chọn file</strong>
+            </div>
+            <div class="upload-hint" id="uploadZoneHint">MP4 · AVI · MOV · MKV</div>
+        </div>
 
-                <div id="uploadStatus" style="display: none;">
-                    <h4>Upload Status:</h4>
-                    <div id="uploadProgress"></div>
+        <!-- Hộp trạng thái -->
+        <div id="uploadStatus">
+            <div class="us-header">
+                <div class="us-icon processing" id="usIcon">
+                    <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56" stroke-linecap="round"/></svg>
+                </div>
+                <div class="us-info">
+                    <div class="us-title processing" id="usTitle">ĐANG XỬ LÝ</div>
+                    <div class="us-sub" id="usSub">Vui lòng chờ...</div>
                 </div>
             </div>
+            <div class="us-progress" id="usProgressTrack">
+                <div class="us-progress-fill" id="usProgressFill" style="width:100%"></div>
+            </div>
+            <div id="usDownload"></div>
+        </div>
+    </div>
 
-            <div class="stats-section">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number" id="vehiclesIn">0</div>
-                        <div class="stat-label">Vehicles In</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="vehiclesOut">0</div>
-                        <div class="stat-label">Vehicles Out</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalVehicles">0</div>
-                        <div class="stat-label">Total Vehicles</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="netCount">0</div>
-                        <div class="stat-label">Net Count</div>
-                    </div>
-                </div>
+    <!-- CỘT PHẢI TRÊN -->
+    <div class="panel sidebar-top">
+        <div class="panel-label">BỘ ĐẾM</div>
+        <div class="stats-grid">
+            <div class="stat-card stat-in">
+                <div class="stat-value" id="vehiclesIn">0</div>
+                <div class="stat-label">XE VÀO</div>
+            </div>
+            <div class="stat-card stat-out">
+                <div class="stat-value" id="vehiclesOut">0</div>
+                <div class="stat-label">XE RA</div>
+            </div>
+            <div class="stat-card stat-total">
+                <div class="stat-value" id="totalVehicles">0</div>
+                <div class="stat-label">TỔNG CỘNG</div>
+            </div>
+            <div class="stat-card stat-net">
+                <div class="stat-value" id="netCount">0</div>
+                <div class="stat-label">HIỆN TẠI</div>
+            </div>
+            <button class="btn btn-reset" onclick="resetCounts()">
+                <svg viewBox="0 0 24 24" stroke-width="2"><path d="M3 12a9 9 0 109-9M3 3v6h6"/></svg>
+                ĐẶT LẠI
+            </button>
+        </div>
 
-                <div class="vehicle-types">
-                    <h3>Vehicle Types</h3>
-                    <div class="vehicle-type-item">
-                        <span>🚗 Cars</span>
-                        <span id="carCount">0</span>
-                    </div>
-                    <div class="vehicle-type-item">
-                        <span>🚛 Trucks</span>
-                        <span id="truckCount">0</span>
-                    </div>
-                    <div class="vehicle-type-item">
-                        <span>🚌 Buses</span>
-                        <span id="busCount">0</span>
-                    </div>
-                    <div class="vehicle-type-item">
-                        <span>🏍️ Motorcycles</span>
-                        <span id="motorcycleCount">0</span>
-                    </div>
-                </div>
-
-                <div class="session-info">
-                    <h4>Session Information</h4>
-                    <div class="session-item">
-                        <span>Status:</span>
-                        <span>
-                            <span class="status-indicator status-offline" id="statusIndicator"></span>
-                            <span id="statusText">Offline</span>
-                        </span>
-                    </div>
-                    <div class="session-item">
-                        <span>Duration:</span>
-                        <span id="sessionDuration">00:00:00</span>
-                    </div>
-                    <div class="session-item">
-                        <span>Frames Processed:</span>
-                        <span id="framesProcessed">0</span>
-                    </div>
-                    <div class="session-item">
-                        <span>Active Tracks:</span>
-                        <span id="activeTracks">0</span>
-                    </div>
-                </div>
+        <div class="panel-label">PHÂN LOẠI XE</div>
+        <div class="type-list">
+            <div class="type-row">
+                <div class="type-name"><div class="type-icon">🚗</div>Ô tô</div>
+                <div><div class="type-count" id="carCount">0</div><div class="type-bar"><div class="type-bar-fill" id="carBar"></div></div></div>
+            </div>
+            <div class="type-row">
+                <div class="type-name"><div class="type-icon">🚛</div>Xe tải</div>
+                <div><div class="type-count" id="truckCount">0</div><div class="type-bar"><div class="type-bar-fill" id="truckBar"></div></div></div>
+            </div>
+            <div class="type-row">
+                <div class="type-name"><div class="type-icon">🚌</div>Xe buýt</div>
+                <div><div class="type-count" id="busCount">0</div><div class="type-bar"><div class="type-bar-fill" id="busBar"></div></div></div>
+            </div>
+            <div class="type-row">
+                <div class="type-name"><div class="type-icon">🏍️</div>Mô tô</div>
+                <div><div class="type-count" id="motorcycleCount">0</div><div class="type-bar"><div class="type-bar-fill" id="motoBar"></div></div></div>
             </div>
         </div>
     </div>
 
-    <script>
-        // WebSocket connections
-        let cameraSocket = null;
-        let statsSocket = null;
-        let isProcessing = false;
 
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
-            checkServiceHealth();
-            setupStatsUpdates();
+    
+
+    <!-- CỘT PHẢI DƯỚI -->
+    <div class="panel sidebar-bottom">
+        <div class="panel-label">PHIÊN LÀM VIỆC</div>
+        <div>
+            <div class="session-row">
+                <span class="session-key">Trạng thái</span>
+                <span class="session-val">
+                    <span class="pulse-dot offline" id="sideStatusDot"></span>
+                    <span id="sideStatusText">Ngoại tuyến</span>
+                </span>
+            </div>
+            <div class="session-row">
+                <span class="session-key">Thời lượng</span>
+                <span class="session-val" id="sessionDuration2">00:00:00</span>
+            </div>
+            <div class="session-row">
+                <span class="session-key">Khung hình đã xử lý</span>
+                <span class="session-val" id="framesProcessed">0</span>
+            </div>
+            <div class="session-row">
+                <span class="session-key">Đang theo dõi</span>
+                <span class="session-val" id="activeTracks">0</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<footer class="footer-strip">
+    <span>VCS · YOLOv8 + DeepSORT</span>
+    <span id="footerClock">—</span>
+</footer>
+
+<script>
+    // ── ĐỒNG HỒ ──
+    function updateClock() {
+        const s = new Date().toTimeString().slice(0, 8);
+        document.getElementById('footerClock').textContent  = s;
+        document.getElementById('clockDisplay').textContent = s;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ── QUẢN LÝ UPLOAD ZONE ──
+    let isFileProcessing = false;
+
+    function handleUploadClick() {
+        if (isFileProcessing) return;
+        document.getElementById('videoFile').click();
+    }
+
+    function lockUploadZone(filename) {
+        isFileProcessing = true;
+        const zone = document.getElementById('uploadZone');
+        zone.classList.add('locked');
+        document.getElementById('uploadZoneText').innerHTML =
+            '<strong>Đang xử lý file...</strong>';
+        document.getElementById('uploadZoneHint').textContent = filename || '';
+    }
+
+    function unlockUploadZone() {
+        isFileProcessing = false;
+        const zone = document.getElementById('uploadZone');
+        zone.classList.remove('locked');
+        document.getElementById('uploadZoneText').innerHTML =
+            'Kéo thả video hoặc <strong>nhấn để chọn file</strong>';
+        document.getElementById('uploadZoneHint').textContent = 'MP4 · AVI · MOV · MKV';
+        // Reset file input để có thể chọn lại cùng file
+        document.getElementById('videoFile').value = '';
+    }
+
+    // Hiển thị hộp trạng thái upload
+    function showUploadBox(type, title, sub, showProgress) {
+        document.getElementById('uploadStatus').style.display = 'block';
+
+        const icon     = document.getElementById('usIcon');
+        const titleEl  = document.getElementById('usTitle');
+        const subEl    = document.getElementById('usSub');
+        const track    = document.getElementById('usProgressTrack');
+
+        icon.className  = 'us-icon ' + type;
+        titleEl.className = 'us-title ' + type;
+        titleEl.textContent = title;
+        subEl.textContent   = sub;
+
+        if (type === 'processing') {
+            icon.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56" stroke-linecap="round"/></svg>`;
+            track.style.display = showProgress ? 'block' : 'none';
+        } else if (type === 'success') {
+            icon.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+            track.style.display = 'none';
+        } else {
+            icon.innerHTML = `<svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+            track.style.display = 'none';
+        }
+    }
+
+    // ── DRAG & DROP ──
+    const uploadZone = document.getElementById('uploadZone');
+    uploadZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (!isFileProcessing) uploadZone.classList.add('drag-over');
+    });
+    uploadZone.addEventListener('dragleave', e => {
+        e.preventDefault();
+        uploadZone.classList.remove('drag-over');
+    });
+    uploadZone.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadZone.classList.remove('drag-over');
+        if (isFileProcessing) return;
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            document.getElementById('videoFile').files = files;
+            uploadVideo();
+        }
+    });
+
+    // ── SYNC STATUS ──
+    function updateStatus(status, text) {
+        const indicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const sideDot   = document.getElementById('sideStatusDot');
+        const sideText  = document.getElementById('sideStatusText');
+        const cls = 'pulse-dot ' + (status === 'online' ? '' : status === 'processing' ? 'processing' : 'offline');
+        indicator.className = cls.trim();
+        sideDot.className   = cls.trim();
+        statusText.textContent = text.toUpperCase();
+        sideText.textContent   = text;
+    }
+
+    // ── TYPE BARS ──
+    function refreshBars() {
+        const counts = [
+            ['carBar',   parseInt(document.getElementById('carCount').textContent)        || 0],
+            ['truckBar', parseInt(document.getElementById('truckCount').textContent)      || 0],
+            ['busBar',   parseInt(document.getElementById('busCount').textContent)        || 0],
+            ['motoBar',  parseInt(document.getElementById('motorcycleCount').textContent) || 0],
+        ];
+        const max = Math.max(...counts.map(c => c[1]), 1);
+        counts.forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            if (el) el.style.width = (val / max * 100) + '%';
         });
+        const d1 = document.getElementById('sessionDuration');
+        const d2 = document.getElementById('sessionDuration2');
+        if (d1 && d2) d2.textContent = d1.textContent;
+    }
+    setInterval(refreshBars, 500);
 
-        // Check service health
-        async function checkServiceHealth() {
-            try {
-                const response = await fetch('/api/v1/health');
-                const data = await response.json();
-                if (data.status === 'healthy') {
-                    updateStatus('online', 'Ready');
-                }
-            } catch (error) {
-                updateStatus('offline', 'Service Unavailable');
-                console.error('Health check failed:', error);
-            }
+    // ────────────────────────────────────────────────────
+    //  LOGIC GỐC (KHÔNG THAY ĐỔI)
+    // ────────────────────────────────────────────────────
+    let cameraSocket = null;
+    let statsSocket  = null;
+    let isProcessing = false;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        checkServiceHealth();
+        setupStatsUpdates();
+    });
+
+    async function checkServiceHealth() {
+        try {
+            const response = await fetch('/api/v1/health');
+            const data = await response.json();
+            if (data.status === 'healthy') updateStatus('online', 'Sẵn sàng');
+        } catch (error) {
+            updateStatus('offline', 'Dịch vụ không khả dụng');
+            console.error('Health check failed:', error);
         }
+    }
 
-        // Start camera processing
-        async function startCamera() {
-            if (isProcessing) return;
-
-            try {
-                updateStatus('processing', 'Starting Camera...');
-                
-                // Create WebSocket connection for camera stream
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${protocol}//${window.location.host}/api/v1/webcam-stream`;
-                
-                cameraSocket = new WebSocket(wsUrl);
-                
-                cameraSocket.onopen = function() {
-                    isProcessing = true;
-                    updateStatus('processing', 'Processing');
-                    document.getElementById('videoPlaceholder').style.display = 'none';
-                };
-                
-                cameraSocket.onmessage = function(event) {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'frame') {
-                        displayFrame(data.frame);
-                        updateStats(data.stats);
-                    }
-                };
-                
-                cameraSocket.onclose = function() {
-                    isProcessing = false;
-                    updateStatus('offline', 'Camera Stopped');
-                    document.getElementById('videoPlaceholder').style.display = 'flex';
-                };
-                
-                cameraSocket.onerror = function(error) {
-                    console.error('Camera WebSocket error:', error);
-                    updateStatus('offline', 'Camera Error');
-                };
-                
-            } catch (error) {
-                console.error('Failed to start camera:', error);
-                updateStatus('offline', 'Camera Failed');
-            }
-        }
-
-        // Stop camera processing
-        async function stopCamera() {
-            if (cameraSocket) {
-                cameraSocket.send(JSON.stringify({ action: 'stop' }));
-                cameraSocket.close();
-            }
-            isProcessing = false;
-            updateStatus('offline', 'Camera Stopped');
-        }
-
-        // Reset counting statistics
-        async function resetCounts() {
-            try {
-                const response = await fetch('/api/v1/reset-counts', { method: 'POST' });
-                if (response.ok) {
-                    // Stats will be updated automatically through WebSocket
-                    console.log('Counts reset successfully');
-                }
-            } catch (error) {
-                console.error('Failed to reset counts:', error);
-            }
-        }
-
-        // Upload and process video file
-        async function uploadVideo() {
-            const fileInput = document.getElementById('videoFile');
-            const file = fileInput.files[0];
-            
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                document.getElementById('uploadStatus').style.display = 'block';
-                document.getElementById('uploadProgress').innerHTML = 'Uploading...';
-
-                const response = await fetch('/api/v1/process-video', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-                if (data.job_id) {
-                    pollJobStatus(data.job_id);
-                }
-            } catch (error) {
-                console.error('Upload failed:', error);
-                document.getElementById('uploadProgress').innerHTML = 'Upload failed';
-            }
-        }
-
-        // Poll job status for video processing
-        async function pollJobStatus(jobId) {
-            const interval = setInterval(async () => {
-                try {
-                    const response = await fetch(`/api/v1/job-status/${jobId}`);
-                    const status = await response.json();
-
-                    if (status.status === 'completed') {
-                        document.getElementById('uploadProgress').innerHTML = 
-                            `Processing completed! <a href="/api/v1/download-result/${jobId}" class="btn btn-primary">Download Result</a>`;
-                        clearInterval(interval);
-                    } else if (status.status === 'failed') {
-                        document.getElementById('uploadProgress').innerHTML = `Processing failed: ${status.error}`;
-                        clearInterval(interval);
-                    } else {
-                        document.getElementById('uploadProgress').innerHTML = 
-                            `Processing... Progress: ${status.progress} frames`;
-                    }
-                } catch (error) {
-                    console.error('Status polling failed:', error);
-                    clearInterval(interval);
-                }
-            }, 2000);
-        }
-
-        // Setup real-time stats updates
-        function setupStatsUpdates() {
+    async function startCamera() {
+        if (isProcessing) return;
+        try {
+            updateStatus('processing', 'Đang khởi động...');
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/v1/live-stats`;
-            
-            statsSocket = new WebSocket(wsUrl);
-            
-            statsSocket.onmessage = function(event) {
+            const wsUrl = `${protocol}//${window.location.host}/api/v1/webcam-stream`;
+            cameraSocket = new WebSocket(wsUrl);
+            cameraSocket.onopen = function () {
+                isProcessing = true;
+                updateStatus('processing', 'Đang xử lý');
+                document.getElementById('videoPlaceholder').style.display = 'none';
+            };
+            cameraSocket.onmessage = function (event) {
                 const data = JSON.parse(event.data);
-                if (data.type === 'stats') {
-                    updateStats(data.data);
-                }
+                if (data.type === 'frame') { displayFrame(data.frame); updateStats(data.stats); }
             };
-        }
-
-        // Display video frame
-        function displayFrame(frameBase64) {
-            const canvas = document.getElementById('videoCanvas');
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            
-            img.onload = function() {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
+            cameraSocket.onclose = function () {
+                isProcessing = false;
+                updateStatus('offline', 'Camera đã dừng');
+                document.getElementById('videoPlaceholder').style.display = 'flex';
             };
-            
-            img.src = 'data:image/jpeg;base64,' + frameBase64;
+            cameraSocket.onerror = function (error) {
+                console.error('Camera WebSocket error:', error);
+                updateStatus('offline', 'Lỗi camera');
+            };
+        } catch (error) {
+            console.error('Failed to start camera:', error);
+            updateStatus('offline', 'Không thể kết nối camera');
         }
+    }
 
-        // Update statistics display
-        function updateStats(stats) {
-            document.getElementById('vehiclesIn').textContent = stats.total_in || 0;
-            document.getElementById('vehiclesOut').textContent = stats.total_out || 0;
-            document.getElementById('totalVehicles').textContent = stats.total_vehicles || 0;
-            document.getElementById('netCount').textContent = stats.net_count || 0;
-            
-            // Update vehicle type counts
-            const countsByType = stats.counts_by_type || {};
-            document.getElementById('carCount').textContent = (countsByType.car?.total || 0);
-            document.getElementById('truckCount').textContent = (countsByType.truck?.total || 0);
-            document.getElementById('busCount').textContent = (countsByType.bus?.total || 0);
-            document.getElementById('motorcycleCount').textContent = (countsByType.motorcycle?.total || 0);
-            
-            // Update session info
-            document.getElementById('sessionDuration').textContent = formatDuration(stats.session_duration || 0);
-            document.getElementById('framesProcessed').textContent = stats.frames_processed || 0;
-            document.getElementById('activeTracks').textContent = stats.active_tracks || 0;
+    async function stopCamera() {
+        if (cameraSocket) { cameraSocket.send(JSON.stringify({ action: 'stop' })); cameraSocket.close(); }
+        isProcessing = false;
+        updateStatus('offline', 'Camera đã dừng');
+    }
+
+    async function resetCounts() {
+        try {
+            const response = await fetch('/api/v1/reset-counts', { method: 'POST' });
+            if (response.ok) console.log('Counts reset successfully');
+        } catch (error) { console.error('Failed to reset counts:', error); }
+    }
+
+    async function uploadVideo() {
+        const fileInput = document.getElementById('videoFile');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Khoá vùng upload ngay lập tức
+        lockUploadZone(file.name);
+        document.getElementById('usDownload').innerHTML = '';
+        showUploadBox('processing', 'ĐANG TẢI LÊN', file.name, true);
+
+        try {
+            const response = await fetch('/api/v1/process-video', { method: 'POST', body: formData });
+            const data = await response.json();
+            if (data.job_id) {
+                showUploadBox('processing', 'ĐANG XỬ LÝ FILE', 'Hệ thống đang phân tích video...', true);
+                pollJobStatus(data.job_id, file.name);
+            }
+        } catch (error) {
+            console.error('Upload failed:', error);
+            showUploadBox('error', 'TẢI LÊN THẤT BẠI', error.message || 'Vui lòng thử lại', false);
+            unlockUploadZone();
         }
+    }
 
-        // Update status indicator
-        function updateStatus(status, text) {
-            const indicator = document.getElementById('statusIndicator');
-            const statusText = document.getElementById('statusText');
-            
-            indicator.className = `status-indicator status-${status}`;
-            statusText.textContent = text;
-        }
-
-        // Format duration in HH:MM:SS
-        function formatDuration(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        // Download current statistics
-        async function downloadStats() {
+    async function pollJobStatus(jobId, filename) {
+        const interval = setInterval(async () => {
             try {
-                const response = await fetch('/api/v1/stats');
-                const stats = await response.json();
-                
-                const dataStr = JSON.stringify(stats, null, 2);
-                const dataBlob = new Blob([dataStr], {type: 'application/json'});
-                
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(dataBlob);
-                link.download = `vehicle_counting_stats_${new Date().toISOString().slice(0, 19)}.json`;
-                link.click();
-            } catch (error) {
-                console.error('Failed to download stats:', error);
-            }
-        }
+                const response = await fetch(`/api/v1/job-status/${jobId}`);
+                const status = await response.json();
 
-        // File drop functionality
-        const fileUpload = document.querySelector('.file-upload');
-        
-        fileUpload.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            this.style.borderColor = '#3498db';
-        });
-        
-        fileUpload.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            this.style.borderColor = '#bdc3c7';
-        });
-        
-        fileUpload.addEventListener('drop', function(e) {
-            e.preventDefault();
-            this.style.borderColor = '#bdc3c7';
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                document.getElementById('videoFile').files = files;
-                uploadVideo();
+                if (status.status === 'completed') {
+                    clearInterval(interval);
+                    unlockUploadZone();
+                    showUploadBox('success', 'XỬ LÝ HOÀN TẤT', filename || 'Video đã xử lý xong', false);
+                    document.getElementById('usDownload').innerHTML =
+                        `<a class="us-download" href="/api/v1/download-result/${jobId}">
+                            <svg viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                            Tải kết quả xuống
+                        </a>`;
+                } else if (status.status === 'failed') {
+                    clearInterval(interval);
+                    unlockUploadZone();
+                    showUploadBox('error', 'XỬ LÝ THẤT BẠI', status.error || 'Đã xảy ra lỗi', false);
+                } else {
+                    const frames = status.progress || 0;
+                    showUploadBox('processing', 'ĐANG XỬ LÝ FILE', `Đã phân tích ${frames} khung hình...`, true);
+                }
+            } catch (error) {
+                console.error('Status polling failed:', error);
+                clearInterval(interval);
+                unlockUploadZone();
+                showUploadBox('error', 'MẤT KẾT NỐI', 'Không thể kiểm tra trạng thái xử lý', false);
             }
-        });
-    </script>
+        }, 2000);
+    }
+
+    function setupStatsUpdates() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/api/v1/live-stats`;
+        statsSocket = new WebSocket(wsUrl);
+        statsSocket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'stats') updateStats(data.data);
+        };
+    }
+
+    function displayFrame(frameBase64) {
+        const canvas = document.getElementById('videoCanvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = function () { canvas.width = img.width; canvas.height = img.height; ctx.drawImage(img, 0, 0); };
+        img.src = 'data:image/jpeg;base64,' + frameBase64;
+    }
+
+    function updateStats(stats) {
+        document.getElementById('vehiclesIn').textContent     = stats.total_in       || 0;
+        document.getElementById('vehiclesOut').textContent    = stats.total_out      || 0;
+        document.getElementById('totalVehicles').textContent  = stats.total_vehicles || 0;
+        document.getElementById('netCount').textContent       = stats.net_count      || 0;
+        const c = stats.counts_by_type || {};
+        document.getElementById('carCount').textContent        = c.car?.total        || 0;
+        document.getElementById('truckCount').textContent      = c.truck?.total      || 0;
+        document.getElementById('busCount').textContent        = c.bus?.total        || 0;
+        document.getElementById('motorcycleCount').textContent = c.motorcycle?.total || 0;
+        document.getElementById('sessionDuration').textContent  = formatDuration(stats.session_duration || 0);
+        document.getElementById('sessionDuration2').textContent = formatDuration(stats.session_duration || 0);
+        document.getElementById('framesProcessed').textContent  = stats.frames_processed || 0;
+        document.getElementById('activeTracks').textContent     = stats.active_tracks    || 0;
+    }
+
+    function formatDuration(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+
+    async function downloadStats() {
+        try {
+            const response = await fetch('/api/v1/stats');
+            const stats = await response.json();
+            const blob = new Blob([JSON.stringify(stats, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `vcs_thongke_${new Date().toISOString().slice(0, 19)}.json`;
+            link.click();
+        } catch (error) { console.error('Failed to download stats:', error); }
+    }
+</script>
 </body>
 </html>
