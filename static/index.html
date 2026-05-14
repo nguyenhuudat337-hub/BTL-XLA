@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Counting System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.8;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .video-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .stats-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 480px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #videoCanvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .video-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #219a52;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d68910;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .vehicle-types {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .vehicle-types h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .vehicle-type-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .vehicle-type-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #27ae60;
+        }
+
+        .status-offline {
+            background: #e74c3c;
+        }
+
+        .status-processing {
+            background: #f39c12;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .file-upload {
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+        }
+
+        .file-upload:hover {
+            border-color: #3498db;
+        }
+
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .session-info {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .session-info h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .session-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Vehicle Counting System</h1>
+            <p>Real-time vehicle detection, tracking, and counting using YOLOv8 and DeepSORT</p>
+        </div>
+
+        <div class="main-content">
+            <div class="video-section">
+                <div class="video-container">
+                    <canvas id="videoCanvas"></canvas>
+                    <div class="video-placeholder" id="videoPlaceholder">
+                        Click "Start Camera" to begin processing
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-success" onclick="startCamera()">📹 Start Camera</button>
+                    <button class="btn btn-danger" onclick="stopCamera()">⏹️ Stop Camera</button>
+                    <button class="btn btn-warning" onclick="resetCounts()">🔄 Reset Counts</button>
+                    <button class="btn btn-primary" onclick="downloadStats()">📊 Download Stats</button>
+                </div>
+
+                <div class="file-upload">
+                    <input type="file" id="videoFile" accept="video/*" onchange="uploadVideo()">
+                    <p>📁 Drop a video file here or click to upload</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('videoFile').click()">
+                        Choose Video File
+                    </button>
+                </div>
+
+                <div id="uploadStatus" style="display: none;">
+                    <h4>Upload Status:</h4>
+                    <div id="uploadProgress"></div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="vehiclesIn">0</div>
+                        <div class="stat-label">Vehicles In</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="vehiclesOut">0</div>
+                        <div class="stat-label">Vehicles Out</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalVehicles">0</div>
+                        <div class="stat-label">Total Vehicles</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="netCount">0</div>
+                        <div class="stat-label">Net Count</div>
+                    </div>
+                </div>
+
+                <div class="vehicle-types">
+                    <h3>Vehicle Types</h3>
+                    <div class="vehicle-type-item">
+                        <span>🚗 Cars</span>
+                        <span id="carCount">0</span>
+                    </div>
+                    <div class="vehicle-type-item">
+                        <span>🚛 Trucks</span>
+                        <span id="truckCount">0</span>
+                    </div>
+                    <div class="vehicle-type-item">
+                        <span>🚌 Buses</span>
+                        <span id="busCount">0</span>
+                    </div>
+                    <div class="vehicle-type-item">
+                        <span>🏍️ Motorcycles</span>
+                        <span id="motorcycleCount">0</span>
+                    </div>
+                </div>
+
+                <div class="session-info">
+                    <h4>Session Information</h4>
+                    <div class="session-item">
+                        <span>Status:</span>
+                        <span>
+                            <span class="status-indicator status-offline" id="statusIndicator"></span>
+                            <span id="statusText">Offline</span>
+                        </span>
+                    </div>
+                    <div class="session-item">
+                        <span>Duration:</span>
+                        <span id="sessionDuration">00:00:00</span>
+                    </div>
+                    <div class="session-item">
+                        <span>Frames Processed:</span>
+                        <span id="framesProcessed">0</span>
+                    </div>
+                    <div class="session-item">
+                        <span>Active Tracks:</span>
+                        <span id="activeTracks">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket connections
+        let cameraSocket = null;
+        let statsSocket = null;
+        let isProcessing = false;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            checkServiceHealth();
+            setupStatsUpdates();
+        });
+
+        // Check service health
+        async function checkServiceHealth() {
+            try {
+                const response = await fetch('/api/v1/health');
+                const data = await response.json();
+                if (data.status === 'healthy') {
+                    updateStatus('online', 'Ready');
+                }
+            } catch (error) {
+                updateStatus('offline', 'Service Unavailable');
+                console.error('Health check failed:', error);
+            }
+        }
+
+        // Start camera processing
+        async function startCamera() {
+            if (isProcessing) return;
+
+            try {
+                updateStatus('processing', 'Starting Camera...');
+                
+                // Create WebSocket connection for camera stream
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/api/v1/webcam-stream`;
+                
+                cameraSocket = new WebSocket(wsUrl);
+                
+                cameraSocket.onopen = function() {
+                    isProcessing = true;
+                    updateStatus('processing', 'Processing');
+                    document.getElementById('videoPlaceholder').style.display = 'none';
+                };
+                
+                cameraSocket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'frame') {
+                        displayFrame(data.frame);
+                        updateStats(data.stats);
+                    }
+                };
+                
+                cameraSocket.onclose = function() {
+                    isProcessing = false;
+                    updateStatus('offline', 'Camera Stopped');
+                    document.getElementById('videoPlaceholder').style.display = 'flex';
+                };
+                
+                cameraSocket.onerror = function(error) {
+                    console.error('Camera WebSocket error:', error);
+                    updateStatus('offline', 'Camera Error');
+                };
+                
+            } catch (error) {
+                console.error('Failed to start camera:', error);
+                updateStatus('offline', 'Camera Failed');
+            }
+        }
+
+        // Stop camera processing
+        async function stopCamera() {
+            if (cameraSocket) {
+                cameraSocket.send(JSON.stringify({ action: 'stop' }));
+                cameraSocket.close();
+            }
+            isProcessing = false;
+            updateStatus('offline', 'Camera Stopped');
+        }
+
+        // Reset counting statistics
+        async function resetCounts() {
+            try {
+                const response = await fetch('/api/v1/reset-counts', { method: 'POST' });
+                if (response.ok) {
+                    // Stats will be updated automatically through WebSocket
+                    console.log('Counts reset successfully');
+                }
+            } catch (error) {
+                console.error('Failed to reset counts:', error);
+            }
+        }
+
+        // Upload and process video file
+        async function uploadVideo() {
+            const fileInput = document.getElementById('videoFile');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                document.getElementById('uploadStatus').style.display = 'block';
+                document.getElementById('uploadProgress').innerHTML = 'Uploading...';
+
+                const response = await fetch('/api/v1/process-video', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (data.job_id) {
+                    pollJobStatus(data.job_id);
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+                document.getElementById('uploadProgress').innerHTML = 'Upload failed';
+            }
+        }
+
+        // Poll job status for video processing
+        async function pollJobStatus(jobId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/v1/job-status/${jobId}`);
+                    const status = await response.json();
+
+                    if (status.status === 'completed') {
+                        document.getElementById('uploadProgress').innerHTML = 
+                            `Processing completed! <a href="/api/v1/download-result/${jobId}" class="btn btn-primary">Download Result</a>`;
+                        clearInterval(interval);
+                    } else if (status.status === 'failed') {
+                        document.getElementById('uploadProgress').innerHTML = `Processing failed: ${status.error}`;
+                        clearInterval(interval);
+                    } else {
+                        document.getElementById('uploadProgress').innerHTML = 
+                            `Processing... Progress: ${status.progress} frames`;
+                    }
+                } catch (error) {
+                    console.error('Status polling failed:', error);
+                    clearInterval(interval);
+                }
+            }, 2000);
+        }
+
+        // Setup real-time stats updates
+        function setupStatsUpdates() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/v1/live-stats`;
+            
+            statsSocket = new WebSocket(wsUrl);
+            
+            statsSocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === 'stats') {
+                    updateStats(data.data);
+                }
+            };
+        }
+
+        // Display video frame
+        function displayFrame(frameBase64) {
+            const canvas = document.getElementById('videoCanvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            };
+            
+            img.src = 'data:image/jpeg;base64,' + frameBase64;
+        }
+
+        // Update statistics display
+        function updateStats(stats) {
+            document.getElementById('vehiclesIn').textContent = stats.total_in || 0;
+            document.getElementById('vehiclesOut').textContent = stats.total_out || 0;
+            document.getElementById('totalVehicles').textContent = stats.total_vehicles || 0;
+            document.getElementById('netCount').textContent = stats.net_count || 0;
+            
+            // Update vehicle type counts
+            const countsByType = stats.counts_by_type || {};
+            document.getElementById('carCount').textContent = (countsByType.car?.total || 0);
+            document.getElementById('truckCount').textContent = (countsByType.truck?.total || 0);
+            document.getElementById('busCount').textContent = (countsByType.bus?.total || 0);
+            document.getElementById('motorcycleCount').textContent = (countsByType.motorcycle?.total || 0);
+            
+            // Update session info
+            document.getElementById('sessionDuration').textContent = formatDuration(stats.session_duration || 0);
+            document.getElementById('framesProcessed').textContent = stats.frames_processed || 0;
+            document.getElementById('activeTracks').textContent = stats.active_tracks || 0;
+        }
+
+        // Update status indicator
+        function updateStatus(status, text) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+        }
+
+        // Format duration in HH:MM:SS
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Download current statistics
+        async function downloadStats() {
+            try {
+                const response = await fetch('/api/v1/stats');
+                const stats = await response.json();
+                
+                const dataStr = JSON.stringify(stats, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `vehicle_counting_stats_${new Date().toISOString().slice(0, 19)}.json`;
+                link.click();
+            } catch (error) {
+                console.error('Failed to download stats:', error);
+            }
+        }
+
+        // File drop functionality
+        const fileUpload = document.querySelector('.file-upload');
+        
+        fileUpload.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#3498db';
+        });
+        
+        fileUpload.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#bdc3c7';
+        });
+        
+        fileUpload.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#bdc3c7';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('videoFile').files = files;
+                uploadVideo();
+            }
+        });
+    </script>
+</body>
+</html>
